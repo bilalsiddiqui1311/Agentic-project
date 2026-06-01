@@ -5,6 +5,7 @@ description = "A Dockerized learning lab for building agentic AI projects from f
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",
+    "openai>=2.0.0",
     "uvicorn[standard]>=0.30.0",
 ]
 

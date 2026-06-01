@@ -1,6 +1,29 @@
 from pathlib import Path
 
-from app.rag.service import build_rag_service
+from app.rag.answerer import GeneratedAnswer
+from app.rag.models import SearchMatch
+from app.rag.service import RagService, build_rag_service
+
+
+class FakeLLMAnswerer:
+    mode = "fake_llm"
+    model = "fake-model"
+
+    def __init__(self) -> None:
+        self.last_prompt: str | None = None
+
+    def answer(
+        self,
+        query: str,
+        matches: list[SearchMatch],
+        prompt: str,
+    ) -> GeneratedAnswer:
+        self.last_prompt = prompt
+        return GeneratedAnswer(
+            text="Fake LLM answer with sources.",
+            mode=self.mode,
+            model=self.model,
+        )
 
 
 def test_rag_service_retrieves_relevant_document_chunks(tmp_path: Path) -> None:
@@ -111,3 +134,23 @@ def test_rag_service_matches_project_numbers_with_leading_zeroes(tmp_path: Path)
     assert result.matches
     assert result.matches[0].chunk.source == "project-03.txt"
     assert "Project 03 separates retrieval from answer generation" in result.answer
+
+
+def test_rag_service_can_use_injected_llm_answerer(tmp_path: Path) -> None:
+    docs_path = tmp_path / "documents"
+    docs_path.mkdir()
+    (docs_path / "rag.txt").write_text(
+        "RAG uses retrieval before answer generation.",
+        encoding="utf-8",
+    )
+    answerer = FakeLLMAnswerer()
+
+    service = RagService(docs_path, answerer=answerer)
+    result = service.query("How does RAG answer?", top_k=1, include_prompt=True)
+
+    assert result.answer == "Fake LLM answer with sources."
+    assert result.answer_mode == "fake_llm"
+    assert result.answer_model == "fake-model"
+    assert answerer.last_prompt is not None
+    assert "Source: rag.txt" in answerer.last_prompt
+    assert result.prompt == answerer.last_prompt

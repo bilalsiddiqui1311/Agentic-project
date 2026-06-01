@@ -15,12 +15,14 @@ learning milestone also has a short project note:
 - `projects/project-01-basic-agent/`
 - `projects/project-02-rag-agent/`
 - `projects/project-03-rag-answering/`
+- `projects/project-04-llm-rag-answering/`
 
 Each milestone is also preserved as its own branch:
 
 - `codex/project-01-basic-agent`
 - `codex/project-02-rag-agent`
 - `codex/project-03-rag-answering`
+- `codex/project-04-llm-rag-answering`
 
 ## Project 01: Basic Tool-Using Agent
 
@@ -93,6 +95,39 @@ This project includes:
 This is still no-key by default. The learning goal is to understand where an
 LLM fits in the RAG pipeline before plugging in a hosted model.
 
+## Project 04: RAG With Real LLM Answering
+
+Project 04 adds an optional OpenAI answerer using the Responses API:
+
+```text
+question
+  -> retrieve relevant chunks
+  -> build grounded prompt
+  -> call LLM when enabled
+  -> return answer mode, model, and sources
+```
+
+By default, the app still uses `local_extractive` mode so Docker works without
+secrets. To enable the OpenAI answerer, configure:
+
+```bash
+RAG_ANSWER_MODE=openai
+OPENAI_API_KEY=your_api_key
+OPENAI_MODEL=gpt-5.5
+```
+
+Then restart:
+
+```bash
+docker compose up -d --build
+```
+
+Check the active mode:
+
+```bash
+curl http://localhost:8000/rag/config
+```
+
 ## Run With Docker Compose
 
 ```bash
@@ -104,6 +139,7 @@ Open:
 - API root: http://localhost:8000
 - Swagger docs: http://localhost:8000/docs
 - Health check: http://localhost:8000/health
+- RAG config: http://localhost:8000/rag/config
 - RAG documents: http://localhost:8000/rag/documents
 
 Try the agent:
@@ -190,11 +226,17 @@ In Project 03, RAG adds an answerer after retrieval. Retrieval finds evidence;
 the answerer turns that evidence into a shorter response. The optional prompt
 shows what we would send to a real LLM in the next production-style upgrade.
 
+In Project 04, the same prompt can be sent to OpenAI when `RAG_ANSWER_MODE` is
+set to `openai` and `OPENAI_API_KEY` is configured. The response includes
+`answer_mode` and `answer_model` so you can see whether the answer came from the
+local answerer or the LLM.
+
 ## Swagger Tests To Try
 
 Use http://localhost:8000/docs and try:
 
 - `GET /tools`: confirm `calculator`, `knowledge_search`, and `rag_search`.
+- `GET /rag/config`: confirm `answer_mode` and `answer_model`.
 - `GET /rag/documents`: see which files were indexed.
 - `POST /rag/query` with `{"query": "What is the RAG pipeline?", "top_k": 2, "include_prompt": true}`.
 - `POST /agent/run` with `{"message": "How does Project 02 use documents?"}`.
@@ -205,6 +247,7 @@ Use http://localhost:8000/docs and try:
 1. **Basic agent**: learn the agent loop and tool calling.
 2. **RAG agent**: add document upload, embeddings, and vector search.
 3. **Grounded answerer**: turn retrieved chunks into cleaner answers.
-4. **Memory agent**: remember user preferences and previous task state.
-5. **Workflow agent**: combine deterministic business rules with LLM decisions.
-6. **Multi-agent system**: split work across specialist agents only when the task is complex enough.
+4. **LLM answerer**: send grounded prompts to a real model.
+5. **Memory agent**: remember user preferences and previous task state.
+6. **Workflow agent**: combine deterministic business rules with LLM decisions.
+7. **Multi-agent system**: split work across specialist agents only when the task is complex enough.

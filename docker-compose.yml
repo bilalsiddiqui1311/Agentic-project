@@ -8,6 +8,10 @@ services:
     environment:
       APP_NAME: Agentic Learning Lab
       LOG_LEVEL: INFO
+      RAG_ANSWER_MODE: ${RAG_ANSWER_MODE:-local}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.5}
+      OPENAI_TIMEOUT_SECONDS: ${OPENAI_TIMEOUT_SECONDS:-30}
     volumes:
       - ./app:/app/app
       - ./data:/app/data

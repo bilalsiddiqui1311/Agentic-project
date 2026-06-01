@@ -11,6 +11,7 @@ from app.schemas import (
     RagIndexResponse,
     RagQueryRequest,
     RagQueryResponse,
+    RagRuntimeResponse,
     RagSource,
 )
 
@@ -18,8 +19,8 @@ DOCUMENTS_PATH = Path(__file__).resolve().parent.parent / "data" / "documents"
 
 app = FastAPI(
     title="Agentic Learning Lab",
-    version="0.3.0",
-    description="Project 03: a Dockerized RAG agent with grounded answer generation.",
+    version="0.4.0",
+    description="Project 04: a Dockerized RAG agent with optional OpenAI LLM answering.",
 )
 
 rag_service = build_rag_service(DOCUMENTS_PATH)
@@ -30,11 +31,12 @@ agent = build_basic_agent(rag_service=rag_service)
 def read_root() -> dict[str, object]:
     return {
         "message": "Agentic Learning Lab is running.",
-        "project": "03-rag-answering",
+        "project": "04-llm-rag-answering",
         "try": {
             "docs": "/docs",
             "run_agent": "POST /agent/run",
             "run_rag": "POST /rag/query",
+            "rag_config": "GET /rag/config",
             "rag_documents": "GET /rag/documents",
             "tools": "GET /tools",
         },
@@ -67,6 +69,11 @@ def list_rag_documents() -> RagIndexResponse:
     )
 
 
+@app.get("/rag/config", response_model=RagRuntimeResponse)
+def read_rag_config() -> RagRuntimeResponse:
+    return RagRuntimeResponse(**rag_service.runtime_summary())
+
+
 @app.post("/rag/query", response_model=RagQueryResponse)
 def query_rag(request: RagQueryRequest) -> RagQueryResponse:
     result = rag_service.query(
@@ -78,6 +85,7 @@ def query_rag(request: RagQueryRequest) -> RagQueryResponse:
         query=result.query,
         answer=result.answer,
         answer_mode=result.answer_mode,
+        answer_model=result.answer_model,
         prompt=result.prompt,
         sources=[
             RagSource(

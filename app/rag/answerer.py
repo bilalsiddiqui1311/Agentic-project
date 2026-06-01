@@ -1,5 +1,6 @@
 import re
 from dataclasses import dataclass
+from typing import Protocol
 
 from app.rag.embeddings import tokenize
 from app.rag.models import SearchMatch
@@ -9,6 +10,19 @@ from app.rag.models import SearchMatch
 class GeneratedAnswer:
     text: str
     mode: str
+    model: str | None = None
+
+
+class Answerer(Protocol):
+    mode: str
+
+    def answer(
+        self,
+        query: str,
+        matches: list[SearchMatch],
+        prompt: str,
+    ) -> GeneratedAnswer:
+        """Generate a grounded answer from retrieved matches."""
 
 
 class LocalGroundedAnswerer:
@@ -16,7 +30,12 @@ class LocalGroundedAnswerer:
 
     mode = "local_extractive"
 
-    def answer(self, query: str, matches: list[SearchMatch]) -> GeneratedAnswer:
+    def answer(
+        self,
+        query: str,
+        matches: list[SearchMatch],
+        prompt: str = "",
+    ) -> GeneratedAnswer:
         if not matches:
             return GeneratedAnswer(
                 text=(
@@ -30,9 +49,10 @@ class LocalGroundedAnswerer:
         if direct_answer:
             return GeneratedAnswer(text=direct_answer, mode=self.mode)
 
-        selected_sentences = self._select_sentences(query, matches)
+        answer_matches = self._select_answer_matches(matches)
+        selected_sentences = self._select_sentences(query, answer_matches)
         if not selected_sentences:
-            sources = self._format_sources(matches)
+            sources = self._format_sources(answer_matches)
             return GeneratedAnswer(
                 text=(
                     "I found related context, but not enough detail to answer directly. "
@@ -42,7 +62,7 @@ class LocalGroundedAnswerer:
             )
 
         answer = " ".join(selected_sentences)
-        sources = self._format_sources(matches)
+        sources = self._format_sources(answer_matches)
         return GeneratedAnswer(
             text=f"{answer} Sources: {sources}.",
             mode=self.mode,
@@ -83,7 +103,19 @@ class LocalGroundedAnswerer:
                 scored_sentences.append((score + match.score, sentence))
 
         scored_sentences.sort(key=lambda item: item[0], reverse=True)
-        return self._dedupe([sentence for _, sentence in scored_sentences[:3]])
+        return self._dedupe([sentence for _, sentence in scored_sentences[:8]])
+
+    def _select_answer_matches(self, matches: list[SearchMatch]) -> list[SearchMatch]:
+        if not matches:
+            return []
+
+        best_score = matches[0].score
+        strong_matches = [
+            match
+            for match in matches
+            if match.score >= best_score * 0.7
+        ]
+        return strong_matches or [matches[0]]
 
     def _split_context(self, text: str) -> list[str]:
         cleaned = self._clean_markdown(text)
@@ -91,8 +123,15 @@ class LocalGroundedAnswerer:
         return [
             piece.strip()
             for piece in pieces
-            if len(piece.strip()) >= 30
+            if self._is_complete_sentence(piece.strip())
         ]
+
+    def _is_complete_sentence(self, sentence: str) -> bool:
+        return (
+            len(sentence) >= 30
+            and sentence.endswith((".", "!", "?"))
+            and sentence[0].isupper()
+        )
 
     def _clean_markdown(self, text: str) -> str:
         cleaned = text.replace("#", " ")
@@ -124,3 +163,50 @@ class LocalGroundedAnswerer:
             result.append(sentence)
 
         return result
+
+
+class OpenAIAnswerer:
+    mode = "openai_llm"
+
+    def __init__(
+        self,
+        model: str,
+        timeout_seconds: float = 30.0,
+    ) -> None:
+        from openai import OpenAI
+
+        self.model = model
+        self.client = OpenAI(timeout=timeout_seconds)
+
+    def answer(
+        self,
+        query: str,
+        matches: list[SearchMatch],
+        prompt: str,
+    ) -> GeneratedAnswer:
+        if not matches:
+            return GeneratedAnswer(
+                text=(
+                    "I could not find relevant context in the indexed documents. "
+                    "Try asking about agents, RAG, tool calling, memory, or Project 02."
+                ),
+                mode=self.mode,
+                model=self.model,
+            )
+
+        response = self.client.responses.create(
+            model=self.model,
+            instructions=(
+                "You are a precise RAG answerer. Use only the provided context. "
+                "If the context is insufficient, say you do not know from the indexed documents. "
+                "Cite source filenames in the answer."
+            ),
+            input=prompt,
+            store=False,
+        )
+
+        return GeneratedAnswer(
+            text=response.output_text.strip(),
+            mode=self.mode,
+            model=self.model,
+        )

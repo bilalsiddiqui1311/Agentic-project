@@ -27,4 +27,5 @@ class RagAnswer:
     answer: str
     matches: list[SearchMatch]
     answer_mode: str
+    answer_model: str | None
     prompt: str | None

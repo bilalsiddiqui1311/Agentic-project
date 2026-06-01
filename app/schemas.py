@@ -48,6 +48,7 @@ class RagQueryResponse(BaseModel):
     query: str
     answer: str
     answer_mode: str
+    answer_model: str | None = None
     prompt: str | None = None
     sources: list[RagSource]
 
@@ -61,3 +62,9 @@ class RagDocumentSummary(BaseModel):
 class RagIndexResponse(BaseModel):
     documents: list[RagDocumentSummary]
     total_chunks: int
+
+
+class RagRuntimeResponse(BaseModel):
+    answer_mode: str
+    answer_model: str | None
+    openai_configured: bool
