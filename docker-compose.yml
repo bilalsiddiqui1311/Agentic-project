@@ -1,0 +1,13 @@
+services:
+  agent-api:
+    build:
+      context: .
+    container_name: agentic-project-api
+    ports:
+      - "8000:8000"
+    environment:
+      APP_NAME: Agentic Learning Lab
+      LOG_LEVEL: INFO
+    volumes:
+      - ./app:/app/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
