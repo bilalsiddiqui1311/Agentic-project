@@ -2,9 +2,23 @@
 
 A Dockerized learning lab for building agentic AI systems from first principles.
 
-This repo starts with the smallest useful version of an agent. It does not need
-an API key yet. The goal is to learn the shape of an agent before adding LLMs,
-RAG, memory, and multi-agent workflows.
+This repo starts with the smallest useful version of an agent and grows one
+project at a time. It does not need an API key yet. The goal is to learn the
+shape of an agent before adding hosted LLMs, production vector databases,
+memory, and multi-agent workflows.
+
+## Project Structure
+
+The runnable app is kept at the repo root so Docker Compose stays simple. Each
+learning milestone also has a short project note:
+
+- `projects/project-01-basic-agent/`
+- `projects/project-02-rag-agent/`
+
+Each milestone is also preserved as its own branch:
+
+- `codex/project-01-basic-agent`
+- `codex/project-02-rag-agent`
 
 ## Project 01: Basic Tool-Using Agent
 
@@ -18,7 +32,7 @@ User goal
   -> produce a final answer
 ```
 
-This starter app includes:
+Project 01 includes:
 
 - A FastAPI server
 - A `BasicAgent` controller
@@ -26,6 +40,33 @@ This starter app includes:
 - A `knowledge_search` tool for basic agent/RAG concepts
 - Tests
 - Docker and Docker Compose
+
+## Project 02: Local RAG Agent
+
+Project 02 adds a local RAG pipeline:
+
+```text
+Documents
+  -> chunks
+  -> local embedding vectors
+  -> in-memory vector search
+  -> sourced answer
+```
+
+This project includes:
+
+- Sample documents in `data/documents/`
+- A document loader
+- A chunker
+- A lightweight local embedding model
+- An in-memory vector store
+- A `rag_search` agent tool
+- Direct RAG endpoints
+
+The current embedding model is intentionally simple so the app works in Docker
+without paid keys or external services. It teaches the RAG architecture first.
+Later we can swap it for OpenAI embeddings, Chroma, pgvector, Pinecone, Weaviate,
+or another production retrieval stack.
 
 ## Run With Docker Compose
 
@@ -38,6 +79,7 @@ Open:
 - API root: http://localhost:8000
 - Swagger docs: http://localhost:8000/docs
 - Health check: http://localhost:8000/health
+- RAG documents: http://localhost:8000/rag/documents
 
 Try the agent:
 
@@ -45,6 +87,14 @@ Try the agent:
 curl -X POST http://localhost:8000/agent/run \
   -H "Content-Type: application/json" \
   -d '{"message": "What is RAG?"}'
+```
+
+RAG query example:
+
+```bash
+curl -X POST http://localhost:8000/rag/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is the RAG pipeline?", "top_k": 2}'
 ```
 
 Calculator example:
@@ -106,6 +156,20 @@ Documents
 
 RAG is usually the next step after a basic tool-using agent. The retrieval system
 becomes one of the agent's tools.
+
+In Project 02, that tool is `rag_search`. When the agent receives a normal
+knowledge question, it retrieves document chunks and returns an answer with
+sources.
+
+## Swagger Tests To Try
+
+Use http://localhost:8000/docs and try:
+
+- `GET /tools`: confirm `calculator`, `knowledge_search`, and `rag_search`.
+- `GET /rag/documents`: see which files were indexed.
+- `POST /rag/query` with `{"query": "What is the RAG pipeline?", "top_k": 2}`.
+- `POST /agent/run` with `{"message": "How does Project 02 use documents?"}`.
+- `POST /agent/run` with `{"message": "Calculate (10 + 5) * 3"}`.
 
 ## Learning Path
 

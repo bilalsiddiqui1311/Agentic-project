@@ -1,7 +1,8 @@
 import re
 
 from app.schemas import AgentResponse, AgentStep
-from app.tools import CalculatorTool, KnowledgeSearchTool
+from app.rag.service import RagService
+from app.tools import CalculatorTool, KnowledgeSearchTool, RagSearchTool
 from app.tools.base import Tool, ToolOutput
 
 
@@ -57,6 +58,9 @@ class BasicAgent:
         if looks_like_math:
             return self.tools["calculator"]
 
+        if "rag_search" in self.tools:
+            return self.tools["rag_search"]
+
         return self.tools["knowledge_search"]
 
     def _compose_answer(self, observation: ToolOutput) -> str:
@@ -69,5 +73,10 @@ class BasicAgent:
         return AgentStep(step=len(existing_steps) + 1, kind=kind, content=content)
 
 
-def build_basic_agent() -> BasicAgent:
-    return BasicAgent(tools=[CalculatorTool(), KnowledgeSearchTool()])
+def build_basic_agent(rag_service: RagService | None = None) -> BasicAgent:
+    tools: list[Tool] = [CalculatorTool(), KnowledgeSearchTool()]
+
+    if rag_service is not None:
+        tools.append(RagSearchTool(rag_service))
+
+    return BasicAgent(tools=tools)
