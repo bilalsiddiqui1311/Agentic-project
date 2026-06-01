@@ -19,7 +19,7 @@ def test_run_agent_endpoint() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["used_tool"] == "rag_search"
-    assert "Based on the retrieved documents" in body["final_answer"]
+    assert "Sources:" in body["final_answer"]
 
 
 def test_rag_documents_endpoint() -> None:
@@ -38,11 +38,13 @@ def test_rag_documents_endpoint() -> None:
 def test_rag_query_endpoint() -> None:
     response = client.post(
         "/rag/query",
-        json={"query": "What is the RAG pipeline?", "top_k": 2},
+        json={"query": "What is the RAG pipeline?", "top_k": 2, "include_prompt": True},
     )
 
     assert response.status_code == 200
     body = response.json()
-    assert "Based on the retrieved documents" in body["answer"]
+    assert "RAG pipeline" in body["answer"]
+    assert body["answer_mode"] == "local_extractive"
+    assert "You are a grounded RAG answerer." in body["prompt"]
     assert body["sources"]
     assert any(source["source"] == "rag-basics.md" for source in body["sources"])

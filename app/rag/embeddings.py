@@ -42,10 +42,17 @@ def _normalize(vector: list[float]) -> list[float]:
 
 def tokenize(text: str) -> list[str]:
     return [
-        token
+        _normalize_token(token)
         for token in re.findall(r"[a-zA-Z][a-zA-Z0-9_-]*|\d+", text.lower())
         if token not in _STOP_WORDS
     ]
+
+
+def _normalize_token(token: str) -> str:
+    if token.isdigit():
+        return str(int(token))
+
+    return token
 
 
 _STOP_WORDS = {

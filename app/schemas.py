@@ -31,6 +31,10 @@ class RagQueryRequest(BaseModel):
         examples=["What is the RAG pipeline?", "How does Project 02 use documents?"],
     )
     top_k: int = Field(default=3, ge=1, le=5)
+    include_prompt: bool = Field(
+        default=False,
+        description="Include the grounded prompt that would be sent to an LLM.",
+    )
 
 
 class RagSource(BaseModel):
@@ -43,6 +47,8 @@ class RagSource(BaseModel):
 class RagQueryResponse(BaseModel):
     query: str
     answer: str
+    answer_mode: str
+    prompt: str | None = None
     sources: list[RagSource]
 
 

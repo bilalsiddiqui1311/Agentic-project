@@ -14,11 +14,13 @@ learning milestone also has a short project note:
 
 - `projects/project-01-basic-agent/`
 - `projects/project-02-rag-agent/`
+- `projects/project-03-rag-answering/`
 
 Each milestone is also preserved as its own branch:
 
 - `codex/project-01-basic-agent`
 - `codex/project-02-rag-agent`
+- `codex/project-03-rag-answering`
 
 ## Project 01: Basic Tool-Using Agent
 
@@ -68,6 +70,29 @@ without paid keys or external services. It teaches the RAG architecture first.
 Later we can swap it for OpenAI embeddings, Chroma, pgvector, Pinecone, Weaviate,
 or another production retrieval stack.
 
+## Project 03: Grounded RAG Answering
+
+Project 03 adds an answer-generation layer after retrieval:
+
+```text
+question
+  -> retrieve relevant chunks
+  -> build grounded prompt
+  -> generate concise answer from evidence
+  -> return answer mode + sources
+```
+
+This project includes:
+
+- A local extractive answerer
+- A grounded prompt builder
+- `answer_mode` in RAG responses
+- Optional `include_prompt` debugging
+- Tests for answer generation and prompt construction
+
+This is still no-key by default. The learning goal is to understand where an
+LLM fits in the RAG pipeline before plugging in a hosted model.
+
 ## Run With Docker Compose
 
 ```bash
@@ -94,7 +119,7 @@ RAG query example:
 ```bash
 curl -X POST http://localhost:8000/rag/query \
   -H "Content-Type: application/json" \
-  -d '{"query": "What is the RAG pipeline?", "top_k": 2}'
+  -d '{"query": "What is the RAG pipeline?", "top_k": 2, "include_prompt": true}'
 ```
 
 Calculator example:
@@ -161,13 +186,17 @@ In Project 02, that tool is `rag_search`. When the agent receives a normal
 knowledge question, it retrieves document chunks and returns an answer with
 sources.
 
+In Project 03, RAG adds an answerer after retrieval. Retrieval finds evidence;
+the answerer turns that evidence into a shorter response. The optional prompt
+shows what we would send to a real LLM in the next production-style upgrade.
+
 ## Swagger Tests To Try
 
 Use http://localhost:8000/docs and try:
 
 - `GET /tools`: confirm `calculator`, `knowledge_search`, and `rag_search`.
 - `GET /rag/documents`: see which files were indexed.
-- `POST /rag/query` with `{"query": "What is the RAG pipeline?", "top_k": 2}`.
+- `POST /rag/query` with `{"query": "What is the RAG pipeline?", "top_k": 2, "include_prompt": true}`.
 - `POST /agent/run` with `{"message": "How does Project 02 use documents?"}`.
 - `POST /agent/run` with `{"message": "Calculate (10 + 5) * 3"}`.
 
@@ -175,6 +204,7 @@ Use http://localhost:8000/docs and try:
 
 1. **Basic agent**: learn the agent loop and tool calling.
 2. **RAG agent**: add document upload, embeddings, and vector search.
-3. **Memory agent**: remember user preferences and previous task state.
-4. **Workflow agent**: combine deterministic business rules with LLM decisions.
-5. **Multi-agent system**: split work across specialist agents only when the task is complex enough.
+3. **Grounded answerer**: turn retrieved chunks into cleaner answers.
+4. **Memory agent**: remember user preferences and previous task state.
+5. **Workflow agent**: combine deterministic business rules with LLM decisions.
+6. **Multi-agent system**: split work across specialist agents only when the task is complex enough.

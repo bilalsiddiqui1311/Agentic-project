@@ -62,6 +62,11 @@ class InMemoryVectorStore:
 
         chunk_tokens = set(tokenize(item.chunk.text))
         overlap = query_tokens.intersection(chunk_tokens)
+        query_numbers = {token for token in query_tokens if token.isdigit()}
+
+        if query_numbers and not query_numbers.intersection(chunk_tokens):
+            return 0.0
+
         lexical_score = len(overlap) / len(query_tokens)
 
         if lexical_score == 0:

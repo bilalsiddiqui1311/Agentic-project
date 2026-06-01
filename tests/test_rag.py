@@ -20,7 +20,8 @@ def test_rag_service_retrieves_relevant_document_chunks(tmp_path: Path) -> None:
 
     assert result.matches
     assert result.matches[0].chunk.source == "rag.txt"
-    assert "Based on the retrieved documents" in result.answer
+    assert result.answer_mode == "local_extractive"
+    assert "RAG retrieves relevant chunks" in result.answer
 
 
 def test_rag_service_returns_helpful_empty_state(tmp_path: Path) -> None:
@@ -35,6 +36,7 @@ def test_rag_service_returns_helpful_empty_state(tmp_path: Path) -> None:
     result = service.query("bananas", top_k=3)
 
     assert result.matches == []
+    assert result.answer_mode == "local_extractive"
     assert "could not find relevant context" in result.answer
 
 
@@ -57,3 +59,55 @@ def test_rag_service_answers_profile_profession_questions(tmp_path: Path) -> Non
     assert result.matches
     assert result.matches[0].chunk.source == "profile.md"
     assert result.answer == "Bilal's profession is Senior DevOps Engineer. Sources: profile.md."
+
+
+def test_rag_service_can_include_grounded_prompt(tmp_path: Path) -> None:
+    docs_path = tmp_path / "documents"
+    docs_path.mkdir()
+    (docs_path / "rag.txt").write_text(
+        "RAG answers should use retrieved context and show sources.",
+        encoding="utf-8",
+    )
+
+    service = build_rag_service(docs_path)
+    result = service.query("How should RAG answer?", top_k=1, include_prompt=True)
+
+    assert result.prompt is not None
+    assert "You are a grounded RAG answerer." in result.prompt
+    assert "How should RAG answer?" in result.prompt
+    assert "Source: rag.txt" in result.prompt
+
+
+def test_rag_service_respects_numeric_project_identifiers(tmp_path: Path) -> None:
+    docs_path = tmp_path / "documents"
+    docs_path.mkdir()
+    (docs_path / "project-03.txt").write_text(
+        "Project 03 separates retrieval from answer generation.",
+        encoding="utf-8",
+    )
+    (docs_path / "project-management.txt").write_text(
+        "Project management is planning, organizing, and managing resources.",
+        encoding="utf-8",
+    )
+
+    service = build_rag_service(docs_path)
+    result = service.query("What is Project 03?", top_k=3)
+
+    assert result.matches
+    assert [match.chunk.source for match in result.matches] == ["project-03.txt"]
+
+
+def test_rag_service_matches_project_numbers_with_leading_zeroes(tmp_path: Path) -> None:
+    docs_path = tmp_path / "documents"
+    docs_path.mkdir()
+    (docs_path / "project-03.txt").write_text(
+        "Project 03 separates retrieval from answer generation.",
+        encoding="utf-8",
+    )
+
+    service = build_rag_service(docs_path)
+    result = service.query("What is the project 3?", top_k=3)
+
+    assert result.matches
+    assert result.matches[0].chunk.source == "project-03.txt"
+    assert "Project 03 separates retrieval from answer generation" in result.answer

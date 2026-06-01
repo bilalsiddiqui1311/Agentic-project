@@ -26,3 +26,5 @@ class RagAnswer:
     query: str
     answer: str
     matches: list[SearchMatch]
+    answer_mode: str
+    prompt: str | None
