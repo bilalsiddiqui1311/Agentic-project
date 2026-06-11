@@ -97,7 +97,8 @@ LLM fits in the RAG pipeline before plugging in a hosted model.
 
 ## Project 04: RAG With Real LLM Answering
 
-Project 04 adds an optional OpenAI answerer using the Responses API:
+Project 04 adds optional real LLM answerers. You can use a local Ollama model
+or OpenAI's Responses API:
 
 ```text
 question
@@ -108,7 +109,28 @@ question
 ```
 
 By default, the app still uses `local_extractive` mode so Docker works without
-secrets. To enable the OpenAI answerer, configure:
+secrets or a running model server.
+
+To enable a local Ollama answerer with Qwen, first install Ollama and pull a
+model on your machine:
+
+```bash
+ollama pull qwen2.5-coder:7b
+```
+
+Then configure:
+
+```bash
+RAG_ANSWER_MODE=ollama
+OLLAMA_MODEL=qwen2.5-coder:7b
+OLLAMA_BASE_URL=http://host.docker.internal:11434
+OLLAMA_TIMEOUT_SECONDS=180
+```
+
+Use `http://localhost:11434` for `OLLAMA_BASE_URL` when running the FastAPI app
+directly on your host instead of through Docker.
+
+To enable the OpenAI answerer instead, configure:
 
 ```bash
 RAG_ANSWER_MODE=openai
@@ -120,6 +142,13 @@ Then restart:
 
 ```bash
 docker compose up -d --build
+```
+
+If port `8000` is already busy, set `API_PORT` in `.env` before starting Docker
+Compose:
+
+```bash
+API_PORT=8010
 ```
 
 Check the active mode:
@@ -226,10 +255,11 @@ In Project 03, RAG adds an answerer after retrieval. Retrieval finds evidence;
 the answerer turns that evidence into a shorter response. The optional prompt
 shows what we would send to a real LLM in the next production-style upgrade.
 
-In Project 04, the same prompt can be sent to OpenAI when `RAG_ANSWER_MODE` is
-set to `openai` and `OPENAI_API_KEY` is configured. The response includes
-`answer_mode` and `answer_model` so you can see whether the answer came from the
-local answerer or the LLM.
+In Project 04, the same prompt can be sent to Ollama when `RAG_ANSWER_MODE` is
+set to `ollama`, or to OpenAI when `RAG_ANSWER_MODE` is set to `openai` and
+`OPENAI_API_KEY` is configured. The response includes `answer_mode` and
+`answer_model` so you can see whether the answer came from the local extractive
+answerer, a local LLM, or a hosted LLM.
 
 ## Swagger Tests To Try
 

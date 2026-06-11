@@ -1,8 +1,10 @@
 from pathlib import Path
 
-from app.rag.answerer import GeneratedAnswer
-from app.rag.models import SearchMatch
-from app.rag.service import RagService, build_rag_service
+import json
+
+from app.rag.answerer import GeneratedAnswer, OllamaAnswerer
+from app.rag.models import Chunk, SearchMatch
+from app.rag.service import RagService, build_answerer_from_env, build_rag_service
 
 
 class FakeLLMAnswerer:
@@ -154,3 +156,66 @@ def test_rag_service_can_use_injected_llm_answerer(tmp_path: Path) -> None:
     assert answerer.last_prompt is not None
     assert "Source: rag.txt" in answerer.last_prompt
     assert result.prompt == answerer.last_prompt
+
+
+def test_build_answerer_from_env_can_select_ollama(monkeypatch) -> None:
+    monkeypatch.setenv("RAG_ANSWER_MODE", "ollama")
+    monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5:0.5b")
+    monkeypatch.setenv("OLLAMA_BASE_URL", "http://ollama:11434")
+
+    answerer = build_answerer_from_env()
+
+    assert answerer.mode == "ollama_llm"
+    assert getattr(answerer, "model") == "qwen2.5:0.5b"
+    assert getattr(answerer, "base_url") == "http://ollama:11434"
+
+
+def test_ollama_answerer_posts_grounded_prompt(monkeypatch) -> None:
+    captured_request = {}
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return json.dumps(
+                {"message": {"content": "Grounded Ollama answer. Sources: rag.txt."}}
+            ).encode("utf-8")
+
+    def fake_urlopen(request, timeout):
+        captured_request["url"] = request.full_url
+        captured_request["timeout"] = timeout
+        captured_request["body"] = json.loads(request.data.decode("utf-8"))
+        return FakeResponse()
+
+    monkeypatch.setattr("app.rag.answerer.urlopen", fake_urlopen)
+    answerer = OllamaAnswerer(
+        model="qwen2.5:0.5b",
+        base_url="http://ollama:11434/",
+        timeout_seconds=12,
+    )
+    matches = [
+        SearchMatch(
+            chunk=Chunk(
+                id="rag.txt:0",
+                source="rag.txt",
+                index=0,
+                text="RAG uses retrieved context before answering.",
+            ),
+            score=1.0,
+        )
+    ]
+
+    result = answerer.answer("How does RAG answer?", matches, "Grounded prompt")
+
+    assert result.text == "Grounded Ollama answer. Sources: rag.txt."
+    assert result.mode == "ollama_llm"
+    assert result.model == "qwen2.5:0.5b"
+    assert captured_request["url"] == "http://ollama:11434/api/chat"
+    assert captured_request["timeout"] == 12
+    assert captured_request["body"]["model"] == "qwen2.5:0.5b"
+    assert captured_request["body"]["stream"] is False
+    assert captured_request["body"]["messages"][-1]["content"] == "Grounded prompt"

@@ -1,6 +1,9 @@
+import json
 import re
 from dataclasses import dataclass
 from typing import Protocol
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from app.rag.embeddings import tokenize
 from app.rag.models import SearchMatch
@@ -209,4 +212,113 @@ class OpenAIAnswerer:
             text=response.output_text.strip(),
             mode=self.mode,
             model=self.model,
+        )
+
+
+class OllamaAnswerer:
+    mode = "ollama_llm"
+
+    def __init__(
+        self,
+        model: str,
+        base_url: str = "http://localhost:11434",
+        timeout_seconds: float = 180.0,
+    ) -> None:
+        self.model = model
+        self.base_url = base_url.rstrip("/")
+        self.timeout_seconds = timeout_seconds
+
+    def answer(
+        self,
+        query: str,
+        matches: list[SearchMatch],
+        prompt: str,
+    ) -> GeneratedAnswer:
+        if not matches:
+            return GeneratedAnswer(
+                text=(
+                    "I could not find relevant context in the indexed documents. "
+                    "Try asking about agents, RAG, tool calling, memory, or Project 02."
+                ),
+                mode=self.mode,
+                model=self.model,
+            )
+
+        try:
+            response = self._chat(prompt)
+        except RuntimeError as error:
+            return GeneratedAnswer(
+                text=(
+                    "Ollama is configured, but the local model could not answer yet. "
+                    f"{error}"
+                ),
+                mode=self.mode,
+                model=self.model,
+            )
+
+        return GeneratedAnswer(
+            text=response,
+            mode=self.mode,
+            model=self.model,
+        )
+
+    def _chat(self, prompt: str) -> str:
+        payload = {
+            "model": self.model,
+            "stream": False,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a precise RAG answerer. Use only the provided context. "
+                        "If the context is insufficient, say you do not know from "
+                        "the indexed documents. "
+                        "Cite source filenames in the answer."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+        }
+        request = Request(
+            f"{self.base_url}/api/chat",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        try:
+            with urlopen(request, timeout=self.timeout_seconds) as response:
+                body = json.loads(response.read().decode("utf-8"))
+        except HTTPError as error:
+            details = error.read().decode("utf-8", errors="replace")
+            raise RuntimeError(
+                f"Ollama returned HTTP {error.code}: {details}"
+            ) from error
+        except TimeoutError as error:
+            raise RuntimeError(self._timeout_message()) from error
+        except URLError as error:
+            if "timed out" in str(error).lower():
+                raise RuntimeError(self._timeout_message()) from error
+
+            raise RuntimeError(
+                f"Check that Ollama is running at {self.base_url} and that model "
+                f"{self.model!r} is pulled."
+            ) from error
+        except json.JSONDecodeError as error:
+            raise RuntimeError(
+                "Ollama returned a response that was not valid JSON."
+            ) from error
+
+        message = body.get("message", {})
+        content = message.get("content", "")
+        if not isinstance(content, str) or not content.strip():
+            raise RuntimeError("Ollama returned an empty answer.")
+
+        return content.strip()
+
+    def _timeout_message(self) -> str:
+        return (
+            f"The local Ollama request timed out after {self.timeout_seconds:g} seconds. "
+            "The model may still be loading or running slowly on CPU. Try again, "
+            "increase OLLAMA_TIMEOUT_SECONDS, or use a smaller model."
         )

@@ -2,7 +2,12 @@ import os
 from collections import Counter
 from pathlib import Path
 
-from app.rag.answerer import Answerer, LocalGroundedAnswerer, OpenAIAnswerer
+from app.rag.answerer import (
+    Answerer,
+    LocalGroundedAnswerer,
+    OllamaAnswerer,
+    OpenAIAnswerer,
+)
 from app.rag.chunker import chunk_documents
 from app.rag.document_loader import load_documents
 from app.rag.embeddings import HashingEmbeddingModel
@@ -55,12 +60,25 @@ class RagService:
             "answer_mode": self.answerer.mode,
             "answer_model": getattr(self.answerer, "model", None),
             "openai_configured": bool(os.getenv("OPENAI_API_KEY")),
+            "ollama_configured": self.answerer.mode == "ollama_llm",
+            "ollama_base_url": getattr(self.answerer, "base_url", None),
+            "ollama_timeout_seconds": getattr(self.answerer, "timeout_seconds", None),
         }
 
 
 def build_answerer_from_env() -> Answerer:
     requested_mode = os.getenv("RAG_ANSWER_MODE", "local").strip().lower()
     api_key_available = bool(os.getenv("OPENAI_API_KEY"))
+
+    if requested_mode in {"ollama", "ollama_llm", "local_llm"}:
+        model = os.getenv("OLLAMA_MODEL", "qwen2.5-coder:7b")
+        base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        timeout = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "180"))
+        return OllamaAnswerer(
+            model=model,
+            base_url=base_url,
+            timeout_seconds=timeout,
+        )
 
     if requested_mode in {"openai", "openai_llm", "llm"} and api_key_available:
         model = os.getenv("OPENAI_MODEL", "gpt-5.5")

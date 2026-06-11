@@ -20,7 +20,7 @@ DOCUMENTS_PATH = Path(__file__).resolve().parent.parent / "data" / "documents"
 app = FastAPI(
     title="Agentic Learning Lab",
     version="0.4.0",
-    description="Project 04: a Dockerized RAG agent with optional OpenAI LLM answering.",
+    description="Project 04: a Dockerized RAG agent with optional local or OpenAI LLM answering.",
 )
 
 rag_service = build_rag_service(DOCUMENTS_PATH)

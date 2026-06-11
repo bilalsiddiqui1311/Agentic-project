@@ -42,6 +42,8 @@ def test_rag_config_endpoint() -> None:
     body = response.json()
     assert body["answer_mode"]
     assert "openai_configured" in body
+    assert "ollama_configured" in body
+    assert "ollama_base_url" in body
 
 
 def test_rag_query_endpoint() -> None:

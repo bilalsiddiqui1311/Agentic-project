@@ -68,3 +68,6 @@ class RagRuntimeResponse(BaseModel):
     answer_mode: str
     answer_model: str | None
     openai_configured: bool
+    ollama_configured: bool
+    ollama_base_url: str | None = None
+    ollama_timeout_seconds: float | None = None

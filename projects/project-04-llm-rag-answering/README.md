@@ -3,7 +3,7 @@
 Goal: connect the grounded RAG prompt to a real LLM provider.
 
 ```text
-question -> retrieve chunks -> build prompt -> call OpenAI -> answer with sources
+question -> retrieve chunks -> build prompt -> call local or hosted LLM -> answer with sources
 ```
 
 What this project teaches:
@@ -11,14 +11,27 @@ What this project teaches:
 - The LLM is a separate answer-generation step after retrieval.
 - The same RAG prompt can be used by a local answerer or an API-backed model.
 - Production apps should make the active answer mode visible.
-- API keys must stay in environment variables, never source code.
+- Local model settings and API keys must stay in environment variables, never source code.
 
 Modes:
 
 - `local_extractive`: default, no API key required.
+- `ollama_llm`: enabled when `RAG_ANSWER_MODE=ollama`.
 - `openai_llm`: enabled when `RAG_ANSWER_MODE=openai` and `OPENAI_API_KEY` is set.
 
-Environment:
+Local Ollama environment:
+
+```bash
+RAG_ANSWER_MODE=ollama
+OLLAMA_MODEL=qwen2.5-coder:7b
+OLLAMA_BASE_URL=http://host.docker.internal:11434
+OLLAMA_TIMEOUT_SECONDS=180
+```
+
+Use `http://localhost:11434` for `OLLAMA_BASE_URL` when running the app directly
+on your host instead of through Docker.
+
+OpenAI environment:
 
 ```bash
 RAG_ANSWER_MODE=openai
